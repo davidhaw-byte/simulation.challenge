@@ -1,0 +1,69 @@
+---
+title: "Simulation Challenge"
+subtitle: "Generative Models and Monte Carlo Simulation"
+format:
+  html: default
+  pdf: default
+execute:
+  echo: true
+  eval: true
+---
+
+# 🎲 Simulation Challenge - Monte Carlo Analysis
+
+## Challenge Overview
+
+**Your Mission:** Create a comprehensive Quarto document that simulates one or two investment strategies, analyzes the results, and demonstrates your ability to present counter-intuitive findings compellingly. Then render the document to HTML and deploy it via GitHub Pages from a new repository called "simulationChallenge."
+
+::: {.callout-warning}
+## ⚠️ AI Partnership Required
+
+This challenge pushes boundaries intentionally. You'll tackle problems that normally require weeks of study, but with Cursor AI as your partner (and your brain keeping it honest), you can accomplish more than you thought possible.
+
+**The new reality:** The four stages of competence are Ignorance → Awareness → Learning → Mastery. AI lets us produce Mastery-level work while operating primarily in the Awareness stage. I focus on awareness training, you leverage AI for execution, and together we create outputs that used to require years of dedicated study.
+:::
+
+## The Investment Game 🎯
+
+```{r}
+#| label: fig-compounding-simulation
+#| fig-cap: "Monte Carlo simulation with compounding account balance"
+#| echo: true
+
+# Set seed for reproducibility
+suppressPackageStartupMessages(library(tidyverse))
+
+# Set seed for reproducibility
+set.seed(123)
+
+# Number of simulations
+n_sims <- 100
+# Initial account balance
+initial_acct <- 1000
+
+# Create simulation data with compounding account balance
+sim_data <- tibble(
+  sim_num = 1:n_sims,
+  coin_flip = rbinom(n = n_sims, size = 1, prob = 0.5)
+) %>%
+  mutate(
+    # Calculate compounding account balance
+    account_balance = accumulate(
+      coin_flip, 
+      .init = initial_acct,
+      .f = ~ if_else(.y == 1, .x * 1.5, .x * 0.6)
+    )[-1],  # Remove the initial value
+    # Calculate the change in account balance for each round
+    balance_change = account_balance - lag(account_balance, default = initial_acct)
+  )
+
+# Display first 10 results
+head(sim_data, 10)
+
+# Summary statistics
+cat("\nSimulation Summary:\n")
+cat("Initial balance: $", initial_acct, "\n")
+cat("Final balance: $", round(tail(sim_data$account_balance, 1), 2), "\n")
+cat("Total return: ", round((tail(sim_data$account_balance, 1) / initial_acct - 1) * 100, 2), "%\n")
+cat("Win rate: ", round(mean(sim_data$coin_flip), 3), "\n")
+```
