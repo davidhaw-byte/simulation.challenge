@@ -1,9 +1,7 @@
 ---
 title: "Simulation Challenge"
 subtitle: "Generative Models and Monte Carlo Simulation"
-format:
-  html: default
-  pdf: default
+format: html
 execute:
   echo: false
   eval: true
@@ -171,8 +169,7 @@ investment_plot <- investment_plot +
   # Annotate final point
   annotate("text", x = 54.5, y = tail(sim_data$account_balance, 1) * 1.2, 
            label = paste("Final\n$", scales::comma(round(tail(sim_data$account_balance, 1), 0))), 
-           size = 3, color = "darkblue", fontface = "bold") +
-  
+           size = 3, color = "darkblue", fontface = "bold")
 
 # Display the plot
 print(investment_plot)
@@ -301,125 +298,114 @@ cat("Probability of loss: ", round(sum(final_outcomes$account_balance < initial_
 
 # Load required packages
 suppressPackageStartupMessages(library(tidyverse))
-library(patchwork)
 
-# Create visualization of final outcomes distribution
-
-# Plot 1: Histogram of final balances
-p1 <- ggplot(final_outcomes, aes(x = account_balance)) +
-  geom_histogram(bins = 30, fill = "steelblue", alpha = 0.7, color = "white") +
-  geom_vline(xintercept = initial_acct, color = "red", linetype = "dashed", size = 1) +
-  geom_vline(xintercept = median(final_outcomes$account_balance), color = "green", linetype = "dashed", size = 1) +
-  scale_x_continuous(labels = scales::dollar_format()) +
-  labs(
-    title = "Distribution of Final Account Balances",
-    subtitle = paste("100 simulations, median = $", scales::comma(round(median(final_outcomes$account_balance), 0))),
-    x = "Final Account Balance",
-    y = "Number of Simulations"
+# Create object-oriented probability distribution plot
+probability_distribution_plot <- ggplot(final_outcomes, aes(x = account_balance)) +
+  # Add density curve (probability distribution)
+  geom_density(aes(y = after_stat(density)), 
+               fill = "steelblue", 
+               alpha = 0.6, 
+               color = "darkblue", 
+               linewidth = 1.2) +
+  
+  # Add histogram with probability density
+  geom_histogram(aes(y = after_stat(density)), 
+                 bins = 25, 
+                 fill = "lightblue", 
+                 alpha = 0.4, 
+                 color = "white", 
+                 linewidth = 0.5) +
+  
+  # Add reference lines
+  geom_vline(xintercept = initial_acct, 
+             color = "red", 
+             linetype = "dashed", 
+             linewidth = 1.5,
+             alpha = 0.8) +
+  
+  geom_vline(xintercept = median(final_outcomes$account_balance), 
+             color = "darkgreen", 
+             linetype = "solid", 
+             linewidth = 1.5,
+             alpha = 0.8) +
+  
+  geom_vline(xintercept = mean(final_outcomes$account_balance), 
+             color = "purple", 
+             linetype = "dotted", 
+             linewidth = 1.5,
+             alpha = 0.8) +
+  
+  # Format axes
+  scale_x_continuous(
+    labels = scales::dollar_format(),
+    breaks = scales::pretty_breaks(n = 8),
+    limits = c(0, max(final_outcomes$account_balance) * 1.1)
   ) +
-  theme_minimal() +
-  theme(plot.title = element_text(size = 14, face = "bold"))
-
-# Plot 2: Box plot of returns by category
-p2 <- ggplot(final_outcomes, aes(x = reorder(outcome_category, account_balance), y = account_balance)) +
-  geom_boxplot(fill = "lightblue", alpha = 0.7) +
-  geom_hline(yintercept = initial_acct, color = "red", linetype = "dashed") +
-  scale_y_continuous(labels = scales::dollar_format()) +
-  labs(
-    title = "Final Balances by Outcome Category",
-    x = "Outcome Category",
-    y = "Final Account Balance"
+  
+  scale_y_continuous(
+    labels = scales::percent_format(),
+    breaks = scales::pretty_breaks(n = 6)
   ) +
+  
+  # Add labels and title
+  labs(
+    title = "Probability Distribution of Final Account Balances at Age 55",
+    subtitle = paste("100 Monte Carlo Simulations | Initial Investment: $", 
+                     scales::comma(initial_acct), 
+                     " | Mean: $", scales::comma(round(mean(final_outcomes$account_balance), 0)),
+                     " | Median: $", scales::comma(round(median(final_outcomes$account_balance), 0))),
+    x = "Final Account Balance at Age 55",
+    y = "Probability Density",
+    caption = "Red dashed line: Initial investment | Green solid line: Median | Purple dotted line: Mean"
+  ) +
+  
+  # Custom theme
   theme_minimal() +
   theme(
-    plot.title = element_text(size = 14, face = "bold"),
-    axis.text.x = element_text(angle = 45, hjust = 1)
+    plot.title = element_text(size = 16, face = "bold", color = "#2c3e50", hjust = 0.5),
+    plot.subtitle = element_text(size = 12, color = "#7f8c8d", hjust = 0.5, margin = margin(b = 15)),
+    plot.caption = element_text(size = 10, color = "#95a5a6", hjust = 0),
+    axis.title = element_text(size = 12, face = "bold"),
+    axis.text = element_text(size = 10),
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_line(color = "gray90", linewidth = 0.3),
+    panel.grid.major.y = element_line(color = "gray90", linewidth = 0.3),
+    plot.background = element_rect(fill = "white", color = NA),
+    panel.background = element_rect(fill = "white", color = NA),
+    plot.margin = margin(20, 20, 20, 20)
   )
 
-# Plot 3: Sample of 20 simulation paths
-sample_sims <- all_simulations %>%
-  filter(simulation_id <= 20) %>%
-  group_by(simulation_id) %>%
-  mutate(
-    final_balance = max(account_balance),
-    outcome_type = if_else(final_balance > initial_acct, "Profitable", "Loss")
-  )
-
-p3 <- ggplot(sample_sims, aes(x = age, y = account_balance, group = simulation_id)) +
-  geom_line(alpha = 0.6, aes(color = outcome_type)) +
-  geom_hline(yintercept = initial_acct, color = "red", linetype = "dashed") +
-  scale_y_continuous(labels = scales::dollar_format()) +
-  scale_color_manual(values = c("Loss" = "#e74c3c", "Profitable" = "#27ae60")) +
-  labs(
-    title = "Sample of 20 Simulation Paths",
-    subtitle = "Showing account balance evolution over 35 years",
-    x = "Age",
-    y = "Account Balance",
-    color = "Final Outcome"
-  ) +
-  theme_minimal() +
-  theme(plot.title = element_text(size = 14, face = "bold"))
-
-# Plot 4: Win rate distribution
-win_rates <- all_simulations %>%
-  group_by(simulation_id) %>%
-  summarise(win_rate = mean(coin_flip) * 100, .groups = "drop") %>%
-  mutate(outcome_category = case_when(
-    win_rate >= 60 ~ "High (≥60%)",
-    win_rate >= 55 ~ "Above Average (55-60%)",
-    win_rate >= 45 ~ "Average (45-55%)",
-    win_rate >= 40 ~ "Below Average (40-45%)",
-    TRUE ~ "Low (<40%)"
-  ))
-
-p4 <- ggplot(win_rates, aes(x = win_rate)) +
-  geom_histogram(bins = 20, fill = "orange", alpha = 0.7, color = "white") +
-  geom_vline(xintercept = 50, color = "red", linetype = "dashed", size = 1) +
-  labs(
-    title = "Distribution of Win Rates Across Simulations",
-    subtitle = paste("Mean win rate: ", round(mean(win_rates$win_rate), 1), "%"),
-    x = "Win Rate (%)",
-    y = "Number of Simulations"
-  ) +
-  theme_minimal() +
-  theme(plot.title = element_text(size = 14, face = "bold"))
-
-# Combine plots
-print((p1 | p2) / (p3 | p4))
+# Display the probability distribution plot
+print(probability_distribution_plot)
 ```
 
-## 🔍 Key Insights from 100 Simulations
-
+## Question 4:
+After running the probability distribution, I can see that after 100 simulations the probability 
+distribution looks a little grim. I would say that I am happy that on average I am making money as our 
+mean is 2,758 but the probability of us losing money is too high for my liking. It seems that there is a 
+dense probability that we will lose money so it seems a little risky. Especially since our average is 
+skewed by some very high outliers.
 ```{r}
-#| echo: false
+#| label: prob-analysis-1000
+#| echo: true
 
-# Calculate additional insights
-cat("## 🎯 Key Insights from Monte Carlo Analysis:\n\n")
+# Calculate probability of ending above $1,000
+simulations_above_1000 <- sum(final_outcomes$account_balance > 1000)
+probability_above_1000 <- simulations_above_1000 / n_simulations * 100
 
-# Risk analysis
-cat("**Risk Analysis:**\n")
-cat("- ", round(sum(final_outcomes$account_balance < initial_acct) / n_simulations * 100, 1), "% of simulations resulted in losses\n")
-cat("- ", round(sum(final_outcomes$account_balance < initial_acct * 0.5) / n_simulations * 100, 1), "% lost more than half their initial investment\n")
-cat("- Standard deviation of final balances: $", scales::comma(round(sd(final_outcomes$account_balance), 0)), "\n\n")
+# Calculate probability of ending below $1,000 (loss)
+simulations_below_1000 <- sum(final_outcomes$account_balance < 1000)
+probability_below_1000 <- simulations_below_1000 / n_simulations * 100
 
-# Extreme outcomes
-cat("**Extreme Outcomes:**\n")
-cat("- Best performing simulation: $", scales::comma(round(max(final_outcomes$account_balance), 0)), " (", round(max(final_outcomes$final_return_pct), 1), "% return)\n")
-cat("- Worst performing simulation: $", scales::comma(round(min(final_outcomes$account_balance), 0)), " (", round(min(final_outcomes$final_return_pct), 1), "% return)\n")
-cat("- Range between best and worst: $", scales::comma(round(max(final_outcomes$account_balance) - min(final_outcomes$account_balance), 0)), "\n\n")
+# Calculate probability of ending exactly at $1,000 (break-even)
+simulations_at_1000 <- sum(final_outcomes$account_balance == 1000)
+probability_at_1000 <- simulations_at_1000 / n_simulations * 100
 
-# Expected value validation
-theoretical_expected <- initial_acct * (1.05)^35  # 5% expected return per year
-cat("**Expected Value Analysis:**\n")
-cat("- Theoretical expected final value: $", scales::comma(round(theoretical_expected, 0)), "\n")
-cat("- Actual mean from simulations: $", scales::comma(round(mean(final_outcomes$account_balance), 0)), "\n")
-cat("- Difference: ", round((mean(final_outcomes$account_balance) / theoretical_expected - 1) * 100, 1), "%\n\n")
-
-# Percentile analysis
-cat("**Percentile Analysis:**\n")
-cat("- 10th percentile: $", scales::comma(round(quantile(final_outcomes$account_balance, 0.1), 0)), "\n")
-cat("- 25th percentile: $", scales::comma(round(quantile(final_outcomes$account_balance, 0.25), 0)), "\n")
-cat("- 75th percentile: $", scales::comma(round(quantile(final_outcomes$account_balance, 0.75), 0)), "\n")
-cat("- 90th percentile: $", scales::comma(round(quantile(final_outcomes$account_balance, 0.9), 0)), "\n")
+cat("RESULTS:\n")
+cat("• Simulations ending ABOVE $1,000: ", simulations_above_1000, " out of ", n_simulations, " (", round(probability_above_1000, 1), "%)\n")
+cat("• Simulations ending BELOW $1,000: ", simulations_below_1000, " out of ", n_simulations, " (", round(probability_below_1000, 1), "%)\n")
+cat("• Simulations ending AT $1,000:    ", simulations_at_1000, " out of ", n_simulations, " (", round(probability_at_1000, 1), "%)\n\n")
 ```
 
+## Question 5: 
+In this probability analysis it shows that the probability of the outcome being greater than $1000 is 25%. This is a very low probability for sure leaving me unhappy with the outcome. This probability is definitely too low for me to put down $1000 and risk it being significantly less for only a 25% chance of it growing in value. 
