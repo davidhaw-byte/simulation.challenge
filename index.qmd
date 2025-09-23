@@ -196,3 +196,230 @@ cat("\n🎯 Key Milestones:\n")
 cat("Peak balance: $", scales::comma(round(max(sim_data$account_balance), 2)), " at age ", 20 + max_balance_idx - 1, "\n")
 cat("Lowest balance: $", scales::comma(round(min(sim_data$account_balance), 2)), " at age ", 20 + min_balance_idx - 1, "\n")
 ```
+
+## 🎲 Multiple Simulation Analysis (100 Runs)
+
+```{r}
+#| label: fig-multiple-simulations
+#| fig-cap: "Analysis of 100 Monte Carlo simulations showing distribution of final outcomes"
+#| echo: true
+
+# Load required packages
+suppressPackageStartupMessages(library(tidyverse))
+
+# Set parameters for multiple simulations
+n_simulations <- 100
+n_flips <- 35  # 35 years from age 20 to 55
+initial_acct <- 1000
+
+# Function to run a single simulation
+run_single_simulation <- function(sim_id) {
+  # Generate coin flips for this simulation
+  coin_flips <- rbinom(n = n_flips, size = 1, prob = 0.5)
+  
+  # Calculate account balance over time
+  account_balance <- accumulate(
+    coin_flips, 
+    .init = initial_acct,
+    .f = ~ if_else(.y == 1, .x * 1.5, .x * 0.6)
+  )[-1]  # Remove initial value
+  
+  # Return results for this simulation
+  tibble(
+    simulation_id = sim_id,
+    year = 1:n_flips,
+    age = 20 + year - 1,
+    coin_flip = coin_flips,
+    account_balance = account_balance,
+    balance_change = account_balance - lag(account_balance, default = initial_acct)
+  )
+}
+
+# Run 100 simulations
+cat("Running", n_simulations, "simulations...\n")
+all_simulations <- map_dfr(1:n_simulations, run_single_simulation)
+
+# Calculate final outcomes for each simulation
+final_outcomes <- all_simulations %>%
+  filter(year == n_flips) %>%
+  mutate(
+    final_return_pct = (account_balance / initial_acct - 1) * 100,
+    annualized_return = ((account_balance / initial_acct)^(1/35) - 1) * 100,
+    outcome_category = case_when(
+      account_balance > initial_acct * 10 ~ "Outstanding (>10x)",
+      account_balance > initial_acct * 5 ~ "Excellent (5-10x)",
+      account_balance > initial_acct * 2 ~ "Good (2-5x)",
+      account_balance > initial_acct ~ "Profitable (1-2x)",
+      TRUE ~ "Loss (<1x)"
+    )
+  )
+
+# Summary statistics
+cat("\n📊 100 Simulation Results Summary:\n")
+cat("Initial investment: $", scales::comma(initial_acct), "\n")
+cat("Simulations run: ", n_simulations, "\n")
+cat("Years per simulation: ", n_flips, "\n\n")
+
+cat("Final Balance Statistics:\n")
+cat("Mean final balance: $", scales::comma(round(mean(final_outcomes$account_balance), 2)), "\n")
+cat("Median final balance: $", scales::comma(round(median(final_outcomes$account_balance), 2)), "\n")
+cat("Min final balance: $", scales::comma(round(min(final_outcomes$account_balance), 2)), "\n")
+cat("Max final balance: $", scales::comma(round(max(final_outcomes$account_balance), 2)), "\n")
+cat("Standard deviation: $", scales::comma(round(sd(final_outcomes$account_balance), 2)), "\n\n")
+
+cat("Return Statistics:\n")
+cat("Mean return: ", round(mean(final_outcomes$final_return_pct), 2), "%\n")
+cat("Median return: ", round(median(final_outcomes$final_return_pct), 2), "%\n")
+cat("Mean annualized return: ", round(mean(final_outcomes$annualized_return), 2), "%\n")
+cat("Median annualized return: ", round(median(final_outcomes$annualized_return), 2), "%\n\n")
+
+# Count outcomes by category
+outcome_summary <- final_outcomes %>%
+  count(outcome_category) %>%
+  mutate(percentage = round(n / n_simulations * 100, 1))
+
+cat("Outcome Distribution:\n")
+print(outcome_summary)
+
+# Calculate probability of different outcomes
+profitable_sims <- sum(final_outcomes$account_balance > initial_acct)
+cat("\n🎯 Key Probabilities:\n")
+cat("Probability of profit: ", round(profitable_sims / n_simulations * 100, 1), "%\n")
+cat("Probability of 2x+ return: ", round(sum(final_outcomes$account_balance > initial_acct * 2) / n_simulations * 100, 1), "%\n")
+cat("Probability of 5x+ return: ", round(sum(final_outcomes$account_balance > initial_acct * 5) / n_simulations * 100, 1), "%\n")
+cat("Probability of 10x+ return: ", round(sum(final_outcomes$account_balance > initial_acct * 10) / n_simulations * 100, 1), "%\n")
+cat("Probability of loss: ", round(sum(final_outcomes$account_balance < initial_acct) / n_simulations * 100, 1), "%\n")
+```
+
+## 📈 Visualization of 100 Simulation Results
+
+```{r}
+#| label: fig-simulation-distribution
+#| fig-cap: "Distribution and analysis of final outcomes from 100 Monte Carlo simulations"
+#| fig-width: 12
+#| fig-height: 10
+
+# Load required packages
+suppressPackageStartupMessages(library(tidyverse))
+library(patchwork)
+
+# Create visualization of final outcomes distribution
+
+# Plot 1: Histogram of final balances
+p1 <- ggplot(final_outcomes, aes(x = account_balance)) +
+  geom_histogram(bins = 30, fill = "steelblue", alpha = 0.7, color = "white") +
+  geom_vline(xintercept = initial_acct, color = "red", linetype = "dashed", size = 1) +
+  geom_vline(xintercept = median(final_outcomes$account_balance), color = "green", linetype = "dashed", size = 1) +
+  scale_x_continuous(labels = scales::dollar_format()) +
+  labs(
+    title = "Distribution of Final Account Balances",
+    subtitle = paste("100 simulations, median = $", scales::comma(round(median(final_outcomes$account_balance), 0))),
+    x = "Final Account Balance",
+    y = "Number of Simulations"
+  ) +
+  theme_minimal() +
+  theme(plot.title = element_text(size = 14, face = "bold"))
+
+# Plot 2: Box plot of returns by category
+p2 <- ggplot(final_outcomes, aes(x = reorder(outcome_category, account_balance), y = account_balance)) +
+  geom_boxplot(fill = "lightblue", alpha = 0.7) +
+  geom_hline(yintercept = initial_acct, color = "red", linetype = "dashed") +
+  scale_y_continuous(labels = scales::dollar_format()) +
+  labs(
+    title = "Final Balances by Outcome Category",
+    x = "Outcome Category",
+    y = "Final Account Balance"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+# Plot 3: Sample of 20 simulation paths
+sample_sims <- all_simulations %>%
+  filter(simulation_id <= 20) %>%
+  group_by(simulation_id) %>%
+  mutate(
+    final_balance = max(account_balance),
+    outcome_type = if_else(final_balance > initial_acct, "Profitable", "Loss")
+  )
+
+p3 <- ggplot(sample_sims, aes(x = age, y = account_balance, group = simulation_id)) +
+  geom_line(alpha = 0.6, aes(color = outcome_type)) +
+  geom_hline(yintercept = initial_acct, color = "red", linetype = "dashed") +
+  scale_y_continuous(labels = scales::dollar_format()) +
+  scale_color_manual(values = c("Loss" = "#e74c3c", "Profitable" = "#27ae60")) +
+  labs(
+    title = "Sample of 20 Simulation Paths",
+    subtitle = "Showing account balance evolution over 35 years",
+    x = "Age",
+    y = "Account Balance",
+    color = "Final Outcome"
+  ) +
+  theme_minimal() +
+  theme(plot.title = element_text(size = 14, face = "bold"))
+
+# Plot 4: Win rate distribution
+win_rates <- all_simulations %>%
+  group_by(simulation_id) %>%
+  summarise(win_rate = mean(coin_flip) * 100, .groups = "drop") %>%
+  mutate(outcome_category = case_when(
+    win_rate >= 60 ~ "High (≥60%)",
+    win_rate >= 55 ~ "Above Average (55-60%)",
+    win_rate >= 45 ~ "Average (45-55%)",
+    win_rate >= 40 ~ "Below Average (40-45%)",
+    TRUE ~ "Low (<40%)"
+  ))
+
+p4 <- ggplot(win_rates, aes(x = win_rate)) +
+  geom_histogram(bins = 20, fill = "orange", alpha = 0.7, color = "white") +
+  geom_vline(xintercept = 50, color = "red", linetype = "dashed", size = 1) +
+  labs(
+    title = "Distribution of Win Rates Across Simulations",
+    subtitle = paste("Mean win rate: ", round(mean(win_rates$win_rate), 1), "%"),
+    x = "Win Rate (%)",
+    y = "Number of Simulations"
+  ) +
+  theme_minimal() +
+  theme(plot.title = element_text(size = 14, face = "bold"))
+
+# Combine plots
+print((p1 | p2) / (p3 | p4))
+```
+
+## 🔍 Key Insights from 100 Simulations
+
+```{r}
+#| echo: false
+
+# Calculate additional insights
+cat("## 🎯 Key Insights from Monte Carlo Analysis:\n\n")
+
+# Risk analysis
+cat("**Risk Analysis:**\n")
+cat("- ", round(sum(final_outcomes$account_balance < initial_acct) / n_simulations * 100, 1), "% of simulations resulted in losses\n")
+cat("- ", round(sum(final_outcomes$account_balance < initial_acct * 0.5) / n_simulations * 100, 1), "% lost more than half their initial investment\n")
+cat("- Standard deviation of final balances: $", scales::comma(round(sd(final_outcomes$account_balance), 0)), "\n\n")
+
+# Extreme outcomes
+cat("**Extreme Outcomes:**\n")
+cat("- Best performing simulation: $", scales::comma(round(max(final_outcomes$account_balance), 0)), " (", round(max(final_outcomes$final_return_pct), 1), "% return)\n")
+cat("- Worst performing simulation: $", scales::comma(round(min(final_outcomes$account_balance), 0)), " (", round(min(final_outcomes$final_return_pct), 1), "% return)\n")
+cat("- Range between best and worst: $", scales::comma(round(max(final_outcomes$account_balance) - min(final_outcomes$account_balance), 0)), "\n\n")
+
+# Expected value validation
+theoretical_expected <- initial_acct * (1.05)^35  # 5% expected return per year
+cat("**Expected Value Analysis:**\n")
+cat("- Theoretical expected final value: $", scales::comma(round(theoretical_expected, 0)), "\n")
+cat("- Actual mean from simulations: $", scales::comma(round(mean(final_outcomes$account_balance), 0)), "\n")
+cat("- Difference: ", round((mean(final_outcomes$account_balance) / theoretical_expected - 1) * 100, 1), "%\n\n")
+
+# Percentile analysis
+cat("**Percentile Analysis:**\n")
+cat("- 10th percentile: $", scales::comma(round(quantile(final_outcomes$account_balance, 0.1), 0)), "\n")
+cat("- 25th percentile: $", scales::comma(round(quantile(final_outcomes$account_balance, 0.25), 0)), "\n")
+cat("- 75th percentile: $", scales::comma(round(quantile(final_outcomes$account_balance, 0.75), 0)), "\n")
+cat("- 90th percentile: $", scales::comma(round(quantile(final_outcomes$account_balance, 0.9), 0)), "\n")
+```
+
