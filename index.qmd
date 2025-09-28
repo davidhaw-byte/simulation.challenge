@@ -1,10 +1,16 @@
 ---
 title: "Simulation Challenge"
 subtitle: "Generative Models and Monte Carlo Simulation"
-format: html
+format:
+  html:
+    theme: cosmo
+    toc: true
+    code-fold: true
 execute:
-  echo: false
-  eval: true
+  echo: true
+  eval: false
+  warning: false
+  message: false
 ---
 
 # 🎲 Simulation Challenge - Monte Carlo Analysis
@@ -23,46 +29,61 @@ This challenge pushes boundaries intentionally. You'll tackle problems that norm
 
 ## The Investment Game 🎯
 
-```{r}
+```python
 #| label: fig-compounding-simulation
 #| fig-cap: "Monte Carlo simulation with compounding account balance"
 #| echo: true
 
-# Set seed for reproducibility
-suppressPackageStartupMessages(library(tidyverse))
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
 
 # Set seed for reproducibility
-set.seed(123)
+np.random.seed(123)
 
 # Number of Coin Flips
-n_flips <- 35
+n_flips = 35
 # Initial account balance
-initial_acct <- 1000
+initial_acct = 1000
 
-# Create simulation data with compounding account balance
-sim_data <- tibble(
-  sim_num = 1:n_flips,
-  coin_flip = rbinom(n = n_flips, size = 1, prob = 0.5)
-) %>%
-  mutate(
-    # Calculate compounding account balance
-    account_balance = accumulate(
-      coin_flip, 
-      .init = initial_acct,
-      .f = ~ if_else(.y == 1, .x * 1.5, .x * 0.6)
-    )[-1],  # Remove the initial value
-    # Calculate the change in account balance for each round
-    balance_change = account_balance - lag(account_balance, default = initial_acct)
-  )
+# Generate coin flips (1 = heads/win, 0 = tails/loss)
+coin_flips = np.random.binomial(n=1, p=0.5, size=n_flips)
 
-# Display first 10 results
-head(sim_data, 35)
+# Calculate compounding account balance
+account_balance = [initial_acct]
+for i in range(n_flips):
+    if coin_flips[i] == 1:  # Heads - win 50%
+        new_balance = account_balance[-1] * 1.5
+    else:  # Tails - lose 40%
+        new_balance = account_balance[-1] * 0.6
+    account_balance.append(new_balance)
+
+# Remove initial value to match R version
+account_balance = account_balance[1:]
+
+# Calculate balance changes
+balance_change = [account_balance[0] - initial_acct]
+for i in range(1, len(account_balance)):
+    balance_change.append(account_balance[i] - account_balance[i-1])
+
+# Create DataFrame
+sim_data = pd.DataFrame({
+    'sim_num': range(1, n_flips + 1),
+    'coin_flip': coin_flips,
+    'account_balance': account_balance,
+    'balance_change': balance_change
+})
+
+# Display results
+print("Simulation Results:")
+print(sim_data.to_string(index=False))
 
 # Summary statistics
-cat("\nSimulation Summary:\n")
-cat("Initial balance: $", initial_acct, "\n")
-cat("Final balance: $", round(tail(sim_data$account_balance, 1), 2), "\n")
-cat("Total return: ", round((tail(sim_data$account_balance, 1) / initial_acct - 1) * 100, 2), "%\n")
+print(f"\nSimulation Summary:")
+print(f"Initial balance: ${initial_acct:,}")
+print(f"Final balance: ${sim_data['account_balance'].iloc[-1]:,.2f}")
+final_return = (sim_data['account_balance'].iloc[-1] / initial_acct - 1) * 100
+print(f"Total return: {final_return:.2f}%")
 ```
 
 ## Question 1:
@@ -76,307 +97,323 @@ As seen with the visualization below, our ending account balance by the age of 5
 
 ## 📈 Life-Long Investment Journey Visualization of above simulation
 
-```{r}
+```python
 #| label: fig-life-investment
 #| fig-cap: "35-year investment journey showing account balance evolution from age 20 to 55"
 #| fig-width: 12
 #| fig-height: 8
 
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+
 # Create age-based data
-sim_data_with_age <- sim_data %>%
-  mutate(
-    age = 20 + sim_num - 1,  # Start at age 20
-    decade = floor(age / 10) * 10,  # Group by decades
-    age_group = case_when(
-      age < 30 ~ "20s",
-      age < 40 ~ "30s", 
-      age < 50 ~ "40s",
-      TRUE ~ "50s"
-    )
-  )
+sim_data_with_age = sim_data.copy()
+sim_data_with_age['age'] = 20 + sim_data_with_age['sim_num'] - 1  # Start at age 20
+sim_data_with_age['decade'] = (sim_data_with_age['age'] // 10) * 10  # Group by decades
+
+# Create age groups
+def get_age_group(age):
+    if age < 30:
+        return "20s"
+    elif age < 40:
+        return "30s"
+    elif age < 50:
+        return "40s"
+    else:
+        return "50s"
+
+sim_data_with_age['age_group'] = sim_data_with_age['age'].apply(get_age_group)
 
 # Create the main visualization
-investment_plot <- ggplot(sim_data_with_age, aes(x = age, y = account_balance)) +
-  # Add background grid
-  theme_minimal() +
-  
-  # Add decade markers
-  geom_vline(xintercept = seq(20, 55, 10), color = "gray90", linetype = "dotted", alpha = 0.7) +
-  
-  # Add horizontal reference lines
-  geom_hline(yintercept = initial_acct, color = "red", linetype = "dashed", alpha = 0.8, size = 1) +
-  geom_hline(yintercept = initial_acct * 2, color = "green", linetype = "dashed", alpha = 0.8, size = 1) +
-  geom_hline(yintercept = initial_acct * 5, color = "blue", linetype = "dashed", alpha = 0.8, size = 1) +
-  
-  # Main line showing account balance
-  geom_line(color = "darkblue", size = 2, alpha = 0.9) +
-  
-  # Points colored by win/loss
-  geom_point(aes(color = factor(coin_flip)), size = 3, alpha = 0.8) +
-  
-  # Color scale for wins/losses
-  scale_color_manual(
-    values = c("0" = "#e74c3c", "1" = "#27ae60"),
-    labels = c("Loss", "Win"),
-    name = "Coin Flip Result"
-  ) +
-  
-  # Y-axis formatting with even spacing
-  scale_y_continuous(
-    labels = scales::dollar_format(),
-    breaks = seq(0, max(sim_data$account_balance) * 1.1, by = 1000),
-    limits = c(0, max(sim_data$account_balance) * 1.1)
-  ) +
-  
-  # X-axis formatting
-  scale_x_continuous(
-    breaks = seq(20, 55, 5),
-    limits = c(20, 55)
-  ) +
-  
-  # Labels and title
-  labs(
-    title = "🎯 35-Year Investment Journey: Monte Carlo Simulation",
-    subtitle = paste("Starting at $", scales::comma(initial_acct), "| Final: $", scales::comma(round(tail(sim_data$account_balance, 1), 0))),
-    x = "Age",
-    y = "Account Balance (Log Scale)",
-    caption = "Red line: Starting balance | Green line: 2x return | Blue line: 5x return"
-  ) +
-  
-  # Custom theme
-  theme(
-    plot.title = element_text(size = 18, face = "bold", color = "#2c3e50"),
-    plot.subtitle = element_text(size = 14, color = "#7f8c8d", margin = margin(b = 20)),
-    plot.caption = element_text(size = 10, color = "#95a5a6", hjust = 0),
-    axis.title = element_text(size = 12, face = "bold"),
-    axis.text = element_text(size = 10),
-    legend.title = element_text(size = 12, face = "bold"),
-    legend.text = element_text(size = 10),
-    legend.position = "bottom",
-    panel.grid.minor = element_blank(),
-    panel.grid.major.x = element_blank(),
-    plot.background = element_rect(fill = "white", color = NA),
-    panel.background = element_rect(fill = "white", color = NA)
-  )
+plt.style.use('default')
+fig, ax = plt.subplots(figsize=(12, 8))
+
+# Add decade markers
+for decade in range(20, 56, 10):
+    ax.axvline(x=decade, color='gray', linestyle=':', alpha=0.7)
+
+# Add horizontal reference lines
+ax.axhline(y=initial_acct, color='red', linestyle='--', alpha=0.8, linewidth=2, label='Starting Balance')
+ax.axhline(y=initial_acct * 2, color='green', linestyle='--', alpha=0.8, linewidth=2, label='2x Return')
+ax.axhline(y=initial_acct * 5, color='blue', linestyle='--', alpha=0.8, linewidth=2, label='5x Return')
+
+# Main line showing account balance
+ax.plot(sim_data_with_age['age'], sim_data_with_age['account_balance'], 
+        color='darkblue', linewidth=3, alpha=0.9, label='Account Balance')
+
+# Points colored by win/loss
+win_mask = sim_data_with_age['coin_flip'] == 1
+loss_mask = sim_data_with_age['coin_flip'] == 0
+
+ax.scatter(sim_data_with_age.loc[win_mask, 'age'], 
+          sim_data_with_age.loc[win_mask, 'account_balance'],
+          color='#27ae60', s=50, alpha=0.8, label='Win', zorder=5)
+ax.scatter(sim_data_with_age.loc[loss_mask, 'age'], 
+          sim_data_with_age.loc[loss_mask, 'account_balance'],
+          color='#e74c3c', s=50, alpha=0.8, label='Loss', zorder=5)
+
+# Format axes
+max_balance = sim_data_with_age['account_balance'].max()
+ax.set_ylim(0, max_balance * 1.1)
+ax.set_xlim(20, 55)
+ax.set_xticks(range(20, 56, 5))
+ax.set_yticks(range(0, int(max_balance * 1.1), 1000))
+
+# Format y-axis as currency
+ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'${x:,.0f}'))
+
+# Labels and title
+final_balance = sim_data_with_age['account_balance'].iloc[-1]
+ax.set_title('🎯 35-Year Investment Journey: Monte Carlo Simulation', 
+             fontsize=18, fontweight='bold', color='#2c3e50', pad=20)
+ax.set_xlabel('Age', fontsize=12, fontweight='bold')
+ax.set_ylabel('Account Balance', fontsize=12, fontweight='bold')
+
+# Add subtitle
+ax.text(0.5, 1.02, f'Starting at ${initial_acct:,} | Final: ${final_balance:,.0f}', 
+        transform=ax.transAxes, fontsize=14, color='#7f8c8d', 
+        ha='center', va='bottom')
+
+# Add caption
+ax.text(0.02, 0.02, 'Red line: Starting balance | Green line: 2x return | Blue line: 5x return',
+        transform=ax.transAxes, fontsize=10, color='#95a5a6', 
+        ha='left', va='bottom')
 
 # Add annotations for key milestones
-investment_plot <- investment_plot +
-  # Annotate starting point
-  annotate("text", x = 20.5, y = initial_acct * 1.2, 
-           label = "Starting\n$1,000", 
-           size = 3, color = "red", fontface = "bold") +
-  
-  # Annotate final point
-  annotate("text", x = 54.5, y = tail(sim_data$account_balance, 1) * 1.2, 
-           label = paste("Final\n$", scales::comma(round(tail(sim_data$account_balance, 1), 0))), 
-           size = 3, color = "darkblue", fontface = "bold")
+ax.annotate('Starting\n$1,000', xy=(20.5, initial_acct * 1.2), 
+           fontsize=10, color='red', fontweight='bold', ha='center')
+ax.annotate(f'Final\n${final_balance:,.0f}', xy=(54.5, final_balance * 1.2), 
+           fontsize=10, color='darkblue', fontweight='bold', ha='center')
 
-# Display the plot
-print(investment_plot)
+# Legend
+ax.legend(loc='upper left', fontsize=10)
+
+# Customize appearance
+ax.grid(True, alpha=0.3)
+ax.spines['top'].set_visible(False)
+ax.spines['right'].set_visible(False)
+
+plt.tight_layout()
+plt.show()
 
 # Calculate and display key statistics
-cat("\n📊 Investment Journey Statistics:\n")
-cat("Starting age: 20\n")
-cat("Ending age: 55\n")
-cat("Total years: 35\n")
-cat("Initial investment: $", scales::comma(initial_acct), "\n")
-cat("Final balance: $", scales::comma(round(tail(sim_data$account_balance, 1), 2)), "\n")
-cat("Total return: ", round((tail(sim_data$account_balance, 1) / initial_acct - 1) * 100, 2), "%\n")
-cat("Annualized return: ", round(((tail(sim_data$account_balance, 1) / initial_acct)^(1/35) - 1) * 100, 2), "%\n")
-cat("Win rate: ", round(mean(sim_data$coin_flip) * 100, 1), "%\n")
+print("\n📊 Investment Journey Statistics:")
+print("Starting age: 20")
+print("Ending age: 55")
+print("Total years: 35")
+print(f"Initial investment: ${initial_acct:,}")
+print(f"Final balance: ${final_balance:,.2f}")
+total_return = (final_balance / initial_acct - 1) * 100
+print(f"Total return: {total_return:.2f}%")
+annualized_return = ((final_balance / initial_acct)**(1/35) - 1) * 100
+print(f"Annualized return: {annualized_return:.2f}%")
+win_rate = sim_data['coin_flip'].mean() * 100
+print(f"Win rate: {win_rate:.1f}%")
 
 # Show best and worst years
-max_balance_idx <- which.max(sim_data$account_balance)
-min_balance_idx <- which.min(sim_data$account_balance)
+max_balance_idx = sim_data['account_balance'].idxmax()
+min_balance_idx = sim_data['account_balance'].idxmin()
 
-cat("\n🎯 Key Milestones:\n")
-cat("Peak balance: $", scales::comma(round(max(sim_data$account_balance), 2)), " at age ", 20 + max_balance_idx - 1, "\n")
-cat("Lowest balance: $", scales::comma(round(min(sim_data$account_balance), 2)), " at age ", 20 + min_balance_idx - 1, "\n")
+print("\n🎯 Key Milestones:")
+print(f"Peak balance: ${sim_data['account_balance'].max():,.2f} at age {20 + max_balance_idx}")
+print(f"Lowest balance: ${sim_data['account_balance'].min():,.2f} at age {20 + min_balance_idx}")
 ```
 
 ## 🎲 Multiple Simulation Analysis (100 Runs)
 
-```{r}
+```python
 #| label: fig-multiple-simulations
 #| fig-cap: "Analysis of 100 Monte Carlo simulations showing distribution of final outcomes"
 #| echo: true
 
-# Load required packages
-suppressPackageStartupMessages(library(tidyverse))
+import numpy as np
+import pandas as pd
 
 # Set parameters for multiple simulations
-n_simulations <- 100
-n_flips <- 35  # 35 years from age 20 to 55
-initial_acct <- 1000
+n_simulations = 100
+n_flips = 35  # 35 years from age 20 to 55
+initial_acct = 1000
 
 # Function to run a single simulation
-run_single_simulation <- function(sim_id) {
-  # Generate coin flips for this simulation
-  coin_flips <- rbinom(n = n_flips, size = 1, prob = 0.5)
-  
-  # Calculate account balance over time
-  account_balance <- accumulate(
-    coin_flips, 
-    .init = initial_acct,
-    .f = ~ if_else(.y == 1, .x * 1.5, .x * 0.6)
-  )[-1]  # Remove initial value
-  
-  # Return results for this simulation
-  tibble(
-    simulation_id = sim_id,
-    year = 1:n_flips,
-    age = 20 + year - 1,
-    coin_flip = coin_flips,
-    account_balance = account_balance,
-    balance_change = account_balance - lag(account_balance, default = initial_acct)
-  )
-}
+def run_single_simulation(sim_id):
+    # Generate coin flips for this simulation
+    coin_flips = np.random.binomial(n=1, p=0.5, size=n_flips)
+    
+    # Calculate account balance over time
+    account_balance = [initial_acct]
+    for i in range(n_flips):
+        if coin_flips[i] == 1:  # Heads - win 50%
+            new_balance = account_balance[-1] * 1.5
+        else:  # Tails - lose 40%
+            new_balance = account_balance[-1] * 0.6
+        account_balance.append(new_balance)
+    
+    # Remove initial value
+    account_balance = account_balance[1:]
+    
+    # Calculate balance changes
+    balance_change = [account_balance[0] - initial_acct]
+    for i in range(1, len(account_balance)):
+        balance_change.append(account_balance[i] - account_balance[i-1])
+    
+    # Return results for this simulation
+    return pd.DataFrame({
+        'simulation_id': sim_id,
+        'year': range(1, n_flips + 1),
+        'age': [20 + year - 1 for year in range(1, n_flips + 1)],
+        'coin_flip': coin_flips,
+        'account_balance': account_balance,
+        'balance_change': balance_change
+    })
 
 # Run 100 simulations
-cat("Running", n_simulations, "simulations...\n")
-all_simulations <- map_dfr(1:n_simulations, run_single_simulation)
+print(f"Running {n_simulations} simulations...")
+all_simulations_list = []
+for i in range(1, n_simulations + 1):
+    sim_result = run_single_simulation(i)
+    all_simulations_list.append(sim_result)
+
+all_simulations = pd.concat(all_simulations_list, ignore_index=True)
 
 # Calculate final outcomes for each simulation
-final_outcomes <- all_simulations %>%
-  filter(year == n_flips) %>%
-  mutate(
-    final_return_pct = (account_balance / initial_acct - 1) * 100,
-    annualized_return = ((account_balance / initial_acct)^(1/35) - 1) * 100,
-    outcome_category = case_when(
-      account_balance > initial_acct * 10 ~ "Outstanding (>10x)",
-      account_balance > initial_acct * 5 ~ "Excellent (5-10x)",
-      account_balance > initial_acct * 2 ~ "Good (2-5x)",
-      account_balance > initial_acct ~ "Profitable (1-2x)",
-      TRUE ~ "Loss (<1x)"
-    )
-  )
+final_outcomes = all_simulations[all_simulations['year'] == n_flips].copy()
+final_outcomes['final_return_pct'] = (final_outcomes['account_balance'] / initial_acct - 1) * 100
+final_outcomes['annualized_return'] = ((final_outcomes['account_balance'] / initial_acct)**(1/35) - 1) * 100
+
+# Create outcome categories
+def categorize_outcome(balance):
+    if balance > initial_acct * 10:
+        return "Outstanding (>10x)"
+    elif balance > initial_acct * 5:
+        return "Excellent (5-10x)"
+    elif balance > initial_acct * 2:
+        return "Good (2-5x)"
+    elif balance > initial_acct:
+        return "Profitable (1-2x)"
+    else:
+        return "Loss (<1x)"
+
+final_outcomes['outcome_category'] = final_outcomes['account_balance'].apply(categorize_outcome)
 
 # Summary statistics
-cat("\n📊 100 Simulation Results Summary:\n")
-cat("Initial investment: $", scales::comma(initial_acct), "\n")
-cat("Simulations run: ", n_simulations, "\n")
-cat("Years per simulation: ", n_flips, "\n\n")
+print(f"\n📊 {n_simulations} Simulation Results Summary:")
+print(f"Initial investment: ${initial_acct:,}")
+print(f"Simulations run: {n_simulations}")
+print(f"Years per simulation: {n_flips}\n")
 
-cat("Final Balance Statistics:\n")
-cat("Mean final balance: $", scales::comma(round(mean(final_outcomes$account_balance), 2)), "\n")
-cat("Median final balance: $", scales::comma(round(median(final_outcomes$account_balance), 2)), "\n")
-cat("Min final balance: $", scales::comma(round(min(final_outcomes$account_balance), 2)), "\n")
-cat("Max final balance: $", scales::comma(round(max(final_outcomes$account_balance), 2)), "\n")
-cat("Standard deviation: $", scales::comma(round(sd(final_outcomes$account_balance), 2)), "\n\n")
+print("Final Balance Statistics:")
+print(f"Mean final balance: ${final_outcomes['account_balance'].mean():,.2f}")
+print(f"Median final balance: ${final_outcomes['account_balance'].median():,.2f}")
+print(f"Min final balance: ${final_outcomes['account_balance'].min():,.2f}")
+print(f"Max final balance: ${final_outcomes['account_balance'].max():,.2f}")
+print(f"Standard deviation: ${final_outcomes['account_balance'].std():,.2f}\n")
 
-cat("Return Statistics:\n")
-cat("Mean return: ", round(mean(final_outcomes$final_return_pct), 2), "%\n")
-cat("Median return: ", round(median(final_outcomes$final_return_pct), 2), "%\n")
-cat("Mean annualized return: ", round(mean(final_outcomes$annualized_return), 2), "%\n")
-cat("Median annualized return: ", round(median(final_outcomes$annualized_return), 2), "%\n\n")
+print("Return Statistics:")
+print(f"Mean return: {final_outcomes['final_return_pct'].mean():.2f}%")
+print(f"Median return: {final_outcomes['final_return_pct'].median():.2f}%")
+print(f"Mean annualized return: {final_outcomes['annualized_return'].mean():.2f}%")
+print(f"Median annualized return: {final_outcomes['annualized_return'].median():.2f}%\n")
 
 # Count outcomes by category
-outcome_summary <- final_outcomes %>%
-  count(outcome_category) %>%
-  mutate(percentage = round(n / n_simulations * 100, 1))
+outcome_summary = final_outcomes['outcome_category'].value_counts().reset_index()
+outcome_summary.columns = ['outcome_category', 'n']
+outcome_summary['percentage'] = round(outcome_summary['n'] / n_simulations * 100, 1)
 
-cat("Outcome Distribution:\n")
-print(outcome_summary)
+print("Outcome Distribution:")
+print(outcome_summary.to_string(index=False))
 
 # Calculate probability of different outcomes
-profitable_sims <- sum(final_outcomes$account_balance > initial_acct)
-cat("\n🎯 Key Probabilities:\n")
-cat("Probability of profit: ", round(profitable_sims / n_simulations * 100, 1), "%\n")
-cat("Probability of 2x+ return: ", round(sum(final_outcomes$account_balance > initial_acct * 2) / n_simulations * 100, 1), "%\n")
-cat("Probability of 5x+ return: ", round(sum(final_outcomes$account_balance > initial_acct * 5) / n_simulations * 100, 1), "%\n")
-cat("Probability of 10x+ return: ", round(sum(final_outcomes$account_balance > initial_acct * 10) / n_simulations * 100, 1), "%\n")
-cat("Probability of loss: ", round(sum(final_outcomes$account_balance < initial_acct) / n_simulations * 100, 1), "%\n")
+profitable_sims = sum(final_outcomes['account_balance'] > initial_acct)
+print(f"\n🎯 Key Probabilities:")
+print(f"Probability of profit: {profitable_sims / n_simulations * 100:.1f}%")
+print(f"Probability of 2x+ return: {sum(final_outcomes['account_balance'] > initial_acct * 2) / n_simulations * 100:.1f}%")
+print(f"Probability of 5x+ return: {sum(final_outcomes['account_balance'] > initial_acct * 5) / n_simulations * 100:.1f}%")
+print(f"Probability of 10x+ return: {sum(final_outcomes['account_balance'] > initial_acct * 10) / n_simulations * 100:.1f}%")
+print(f"Probability of loss: {sum(final_outcomes['account_balance'] < initial_acct) / n_simulations * 100:.1f}%")
 ```
 
 ## 📈 Visualization of 100 Simulation Results
 
-```{r}
+```python
 #| label: fig-simulation-distribution
 #| fig-cap: "Distribution and analysis of final outcomes from 100 Monte Carlo simulations"
 #| fig-width: 12
 #| fig-height: 10
 
-# Load required packages
-suppressPackageStartupMessages(library(tidyverse))
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from scipy import stats
 
-# Create object-oriented probability distribution plot
-probability_distribution_plot <- ggplot(final_outcomes, aes(x = account_balance)) +
-  # Add density curve (probability distribution)
-  geom_density(aes(y = after_stat(density)), 
-               fill = "steelblue", 
-               alpha = 0.6, 
-               color = "darkblue", 
-               linewidth = 1.2) +
-  
-  # Add histogram with probability density
-  geom_histogram(aes(y = after_stat(density)), 
-                 bins = 25, 
-                 fill = "lightblue", 
-                 alpha = 0.4, 
-                 color = "white", 
-                 linewidth = 0.5) +
-  
-  # Add reference lines
-  geom_vline(xintercept = initial_acct, 
-             color = "red", 
-             linetype = "dashed", 
-             linewidth = 1.5,
-             alpha = 0.8) +
-  
-  geom_vline(xintercept = median(final_outcomes$account_balance), 
-             color = "darkgreen", 
-             linetype = "solid", 
-             linewidth = 1.5,
-             alpha = 0.8) +
-  
-  geom_vline(xintercept = mean(final_outcomes$account_balance), 
-             color = "purple", 
-             linetype = "dotted", 
-             linewidth = 1.5,
-             alpha = 0.8) +
-  
-  # Format axes
-  scale_x_continuous(
-    labels = scales::dollar_format(),
-    breaks = scales::pretty_breaks(n = 8),
-    limits = c(0, max(final_outcomes$account_balance) * 1.1)
-  ) +
-  
-  scale_y_continuous(
-    labels = scales::percent_format(),
-    breaks = scales::pretty_breaks(n = 6)
-  ) +
-  
-  # Add labels and title
-  labs(
-    title = "Probability Distribution of Final Account Balances at Age 55",
-    subtitle = paste("100 Monte Carlo Simulations | Initial Investment: $", 
-                     scales::comma(initial_acct), 
-                     " | Mean: $", scales::comma(round(mean(final_outcomes$account_balance), 0)),
-                     " | Median: $", scales::comma(round(median(final_outcomes$account_balance), 0))),
-    x = "Final Account Balance at Age 55",
-    y = "Probability Density",
-    caption = "Red dashed line: Initial investment | Green solid line: Median | Purple dotted line: Mean"
-  ) +
-  
-  # Custom theme
-  theme_minimal() +
-  theme(
-    plot.title = element_text(size = 16, face = "bold", color = "#2c3e50", hjust = 0.5),
-    plot.subtitle = element_text(size = 12, color = "#7f8c8d", hjust = 0.5, margin = margin(b = 15)),
-    plot.caption = element_text(size = 10, color = "#95a5a6", hjust = 0),
-    axis.title = element_text(size = 12, face = "bold"),
-    axis.text = element_text(size = 10),
-    panel.grid.minor = element_blank(),
-    panel.grid.major.x = element_line(color = "gray90", linewidth = 0.3),
-    panel.grid.major.y = element_line(color = "gray90", linewidth = 0.3),
-    plot.background = element_rect(fill = "white", color = NA),
-    panel.background = element_rect(fill = "white", color = NA),
-    plot.margin = margin(20, 20, 20, 20)
-  )
+# Create probability distribution plot
+plt.style.use('default')
+fig, ax = plt.subplots(figsize=(12, 10))
 
-# Display the probability distribution plot
-print(probability_distribution_plot)
+# Get data
+balances = final_outcomes['account_balance'].values
+mean_balance = np.mean(balances)
+median_balance = np.median(balances)
+
+# Create histogram with density
+n, bins, patches = ax.hist(balances, bins=25, density=True, alpha=0.4, 
+                          color='lightblue', edgecolor='white', linewidth=0.5,
+                          label='Histogram')
+
+# Create density curve
+x_range = np.linspace(0, max(balances) * 1.1, 1000)
+density = stats.gaussian_kde(balances)
+ax.plot(x_range, density(x_range), color='darkblue', linewidth=2, alpha=0.8,
+        label='Probability Density')
+
+# Fill under density curve
+ax.fill_between(x_range, density(x_range), alpha=0.6, color='steelblue')
+
+# Add reference lines
+ax.axvline(initial_acct, color='red', linestyle='--', linewidth=2, alpha=0.8,
+           label='Initial Investment')
+ax.axvline(median_balance, color='darkgreen', linestyle='-', linewidth=2, alpha=0.8,
+           label='Median')
+ax.axvline(mean_balance, color='purple', linestyle=':', linewidth=2, alpha=0.8,
+           label='Mean')
+
+# Format axes
+ax.set_xlim(0, max(balances) * 1.1)
+ax.set_ylim(0, None)
+
+# Format x-axis as currency
+ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'${x:,.0f}'))
+
+# Format y-axis as percentage
+ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{x*100:.1f}%'))
+
+# Labels and title
+ax.set_title('Probability Distribution of Final Account Balances at Age 55', 
+             fontsize=16, fontweight='bold', color='#2c3e50', pad=20)
+ax.set_xlabel('Final Account Balance at Age 55', fontsize=12, fontweight='bold')
+ax.set_ylabel('Probability Density', fontsize=12, fontweight='bold')
+
+# Add subtitle
+subtitle_text = (f'100 Monte Carlo Simulations | Initial Investment: ${initial_acct:,} | '
+                f'Mean: ${mean_balance:,.0f} | Median: ${median_balance:,.0f}')
+ax.text(0.5, 1.02, subtitle_text, transform=ax.transAxes, fontsize=12, 
+        color='#7f8c8d', ha='center', va='bottom')
+
+# Add caption
+caption_text = ('Red dashed line: Initial investment | Green solid line: Median | Purple dotted line: Mean')
+ax.text(0.02, 0.02, caption_text, transform=ax.transAxes, fontsize=10, 
+        color='#95a5a6', ha='left', va='bottom')
+
+# Legend
+ax.legend(loc='upper right', fontsize=10)
+
+# Customize appearance
+ax.grid(True, alpha=0.3)
+ax.spines['top'].set_visible(False)
+ax.spines['right'].set_visible(False)
+
+plt.tight_layout()
+plt.show()
 ```
 
 ## Question 4:
@@ -385,26 +422,26 @@ distribution looks a little grim. I would say that I am happy that on average I 
 mean is 2,758 but the probability of us losing money is too high for my liking. It seems that there is a 
 dense probability that we will lose money so it seems a little risky. Especially since our average is 
 skewed by some very high outliers.
-```{r}
+```python
 #| label: prob-analysis-1000
 #| echo: true
 
 # Calculate probability of ending above $1,000
-simulations_above_1000 <- sum(final_outcomes$account_balance > 1000)
-probability_above_1000 <- simulations_above_1000 / n_simulations * 100
+simulations_above_1000 = sum(final_outcomes['account_balance'] > 1000)
+probability_above_1000 = simulations_above_1000 / n_simulations * 100
 
 # Calculate probability of ending below $1,000 (loss)
-simulations_below_1000 <- sum(final_outcomes$account_balance < 1000)
-probability_below_1000 <- simulations_below_1000 / n_simulations * 100
+simulations_below_1000 = sum(final_outcomes['account_balance'] < 1000)
+probability_below_1000 = simulations_below_1000 / n_simulations * 100
 
 # Calculate probability of ending exactly at $1,000 (break-even)
-simulations_at_1000 <- sum(final_outcomes$account_balance == 1000)
-probability_at_1000 <- simulations_at_1000 / n_simulations * 100
+simulations_at_1000 = sum(final_outcomes['account_balance'] == 1000)
+probability_at_1000 = simulations_at_1000 / n_simulations * 100
 
-cat("RESULTS:\n")
-cat("• Simulations ending ABOVE $1,000: ", simulations_above_1000, " out of ", n_simulations, " (", round(probability_above_1000, 1), "%)\n")
-cat("• Simulations ending BELOW $1,000: ", simulations_below_1000, " out of ", n_simulations, " (", round(probability_below_1000, 1), "%)\n")
-cat("• Simulations ending AT $1,000:    ", simulations_at_1000, " out of ", n_simulations, " (", round(probability_at_1000, 1), "%)\n\n")
+print("RESULTS:")
+print(f"• Simulations ending ABOVE $1,000: {simulations_above_1000} out of {n_simulations} ({probability_above_1000:.1f}%)")
+print(f"• Simulations ending BELOW $1,000: {simulations_below_1000} out of {n_simulations} ({probability_below_1000:.1f}%)")
+print(f"• Simulations ending AT $1,000:    {simulations_at_1000} out of {n_simulations} ({probability_at_1000:.1f}%)")
 ```
 
 ## Question 5: 
