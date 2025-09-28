@@ -7,7 +7,7 @@ format:
     toc: true
     code-fold: true
 execute:
-  echo: true
+  echo: false
   eval: false
   warning: false
   message: false
