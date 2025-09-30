@@ -8,7 +8,7 @@ format:
     code-fold: true
 execute:
   echo: false
-  eval: false
+  eval: True
   warning: false
   message: false
 ---
@@ -32,7 +32,7 @@ This challenge pushes boundaries intentionally. You'll tackle problems that norm
 ```python
 #| label: fig-compounding-simulation
 #| fig-cap: "Monte Carlo simulation with compounding account balance"
-#| echo: true
+#| echo: false
 
 import numpy as np
 import pandas as pd
@@ -266,7 +266,7 @@ Lowest balance: $0.51 at age 55
 ```python
 #| label: fig-multiple-simulations
 #| fig-cap: "Analysis of 100 Monte Carlo simulations showing distribution of final outcomes"
-#| echo: true
+#| echo: false
 
 import numpy as np
 import pandas as pd
@@ -505,7 +505,7 @@ dense probability that we will lose money so it seems a little risky. Especially
 skewed by some very high outliers.
 ```python
 #| label: prob-analysis-1000
-#| echo: true
+#| echo: false
 
 # Calculate probability of ending above $1,000
 simulations_above_1000 = sum(final_outcomes['account_balance'] > 1000)
