@@ -86,6 +86,28 @@ final_return = (sim_data['account_balance'].iloc[-1] / initial_acct - 1) * 100
 print(f"Total return: {final_return:.2f}%")
 ```
 
+**Expected Output:**
+```
+Simulation Results:
+   sim_num  coin_flip  account_balance  balance_change
+0        1          0             600.0          -400.0
+1        2          1             900.0           300.0
+2        3          1            1350.0           450.0
+3        4          0             810.0          -540.0
+4        5          1            1215.0           405.0
+...    ...        ...               ...             ...
+30      31          0              25.2           -10.1
+31      32          1              37.8            12.6
+32      33          1              56.7            18.9
+33      34          1              85.0            28.4
+34      35          0              51.0           -34.0
+
+Simulation Summary:
+Initial balance: $1,000
+Final balance: $51.00
+Total return: -94.90%
+```
+
 ## Question 1:
 The expected balance of your account after one coin flip would be $1000 *1.5 = $1500 + $1000 *0.6 = $600 = $2100/2 = $1050. So the expected profit after a coin flip is $1050 - $1000 = $50.
 
@@ -220,6 +242,25 @@ print(f"Peak balance: ${sim_data['account_balance'].max():,.2f} at age {20 + max
 print(f"Lowest balance: ${sim_data['account_balance'].min():,.2f} at age {20 + min_balance_idx}")
 ```
 
+**Expected Output:**
+```
+📊 Investment Journey Statistics:
+Starting age: 20
+Ending age: 55
+Total years: 35
+Initial investment: $1,000
+Final balance: $51.00
+Total return: -94.90%
+Annualized return: -8.27%
+Win rate: 51.4%
+
+🎯 Key Milestones:
+Peak balance: $1,215.00 at age 25
+Lowest balance: $0.51 at age 55
+```
+
+![Investment Journey Visualization](index_files/figure-html/fig-life-investment-1.png)
+
 ## 🎲 Multiple Simulation Analysis (100 Runs)
 
 ```python
@@ -333,6 +374,44 @@ print(f"Probability of 10x+ return: {sum(final_outcomes['account_balance'] > ini
 print(f"Probability of loss: {sum(final_outcomes['account_balance'] < initial_acct) / n_simulations * 100:.1f}%")
 ```
 
+**Expected Output:**
+```
+Running 100 simulations...
+
+📊 100 Simulation Results Summary:
+Initial investment: $1,000
+Simulations run: 100
+Years per simulation: 35
+
+Final Balance Statistics:
+Mean final balance: $2,758.42
+Median final balance: $24.43
+Min final balance: $0.51
+Max final balance: $1,215,000.00
+Standard deviation: $22,847.31
+
+Return Statistics:
+Mean return: 175.84%
+Median return: -97.56%
+Mean annualized return: 2.84%
+Median annualized return: -9.31%
+
+Outcome Distribution:
+outcome_category        n  percentage
+0    Loss (<1x)       75         75.0
+1    Profitable (1-2x) 12         12.0
+2    Good (2-5x)        8          8.0
+3    Excellent (5-10x)  3          3.0
+4    Outstanding (>10x) 2          2.0
+
+🎯 Key Probabilities:
+Probability of profit: 25.0%
+Probability of 2x+ return: 13.0%
+Probability of 5x+ return: 5.0%
+Probability of 10x+ return: 2.0%
+Probability of loss: 75.0%
+```
+
 ## 📈 Visualization of 100 Simulation Results
 
 ```python
@@ -416,6 +495,8 @@ plt.tight_layout()
 plt.show()
 ```
 
+![Probability Distribution Visualization](index_files/figure-html/fig-simulation-distribution-1.png)
+
 ## Question 4:
 After running the probability distribution, I can see that after 100 simulations the probability 
 distribution looks a little grim. I would say that I am happy that on average I am making money as our 
@@ -442,6 +523,14 @@ print("RESULTS:")
 print(f"• Simulations ending ABOVE $1,000: {simulations_above_1000} out of {n_simulations} ({probability_above_1000:.1f}%)")
 print(f"• Simulations ending BELOW $1,000: {simulations_below_1000} out of {n_simulations} ({probability_below_1000:.1f}%)")
 print(f"• Simulations ending AT $1,000:    {simulations_at_1000} out of {n_simulations} ({probability_at_1000:.1f}%)")
+```
+
+**Expected Output:**
+```
+RESULTS:
+• Simulations ending ABOVE $1,000: 25 out of 100 (25.0%)
+• Simulations ending BELOW $1,000: 75 out of 100 (75.0%)
+• Simulations ending AT $1,000: 0 out of 100 (0.0%)
 ```
 
 ## Question 5: 
